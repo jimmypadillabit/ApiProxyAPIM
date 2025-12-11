@@ -84,7 +84,7 @@ jobs:
           MAJOR=${{ steps.detect.outputs.MAJOR }}
           API_ID="${{ env.API_BASE_ID }}-v${MAJOR}"
           API_PATH="${{ env.API_BASE_ID }}/v${MAJOR}"
-          az apim api import --resource-group $AZ_RG --service-name $APIM_NAME --path $API_PATH --api-id $API_ID --specification-format OpenApi --specification-path apim/APiComercios/openapi.yaml --service-url http://4.157.52.221/api --version $VERSION --version-set-id $VERSION_SET_ID
+          az apim api import --resource-group $AZ_RG --service-name $APIM_NAME --path $API_PATH --api-id $API_ID --specification-format OpenApi --specification-path apim/APiComercios/openapi.yaml --service-url http://4.157.52.221/api --api-version $VERSION --api-version-set-id $VERSION_SET_ID
       - name: Ensure product exists (comercios)
         run: |
           set -e
