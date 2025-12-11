@@ -10,6 +10,7 @@ env:
   SUBSCRIPTION_ID: a407594f-18e1-4ed7-b941-507c946bb6b3
   API_ID: api-comercios
   PRODUCT_ID: comercios
+  APPLY_POLICY: "false"
 
 jobs:
   deploy:
@@ -45,6 +46,7 @@ jobs:
         run: |
           az apim product api add --resource-group $AZ_RG --service-name $APIM_NAME --product-id $PRODUCT_ID --api-id $API_ID || true
       - name: Apply policy to API
+        if: env.APPLY_POLICY == 'true'
         run: |
           # Build a valid JSON payload safely from the XML file and send as file to az rest
           if ! command -v jq >/dev/null 2>&1; then

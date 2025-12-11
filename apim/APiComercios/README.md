@@ -48,10 +48,13 @@ jobs:
           APIM_NAME: ${{ secrets.AZURE_APIM_NAME }}
 ```
 
-Notas:
+Notes:
 - Reemplaza variables por tus valores.
 - Para demostración de CI/CD, empuja `openapi.yaml` al repo; la pipeline importará/actualizará la API en APIM automáticamente.
 - La asignación a un *product* (p. ej. `comercios`) no requiere cambios en el `openapi.yaml`. Los *products* y las políticas se administran por separado en APIM.
+
+Important: policies are intentionally excluded from automatic deployment in this demo. The file `apim/APiComercios/policy.xml` is ignored by the CI/CD pipeline by default and is included in `.gitignore`.
+If you need to apply policies, set the `APPLY_POLICY` environment variable to `true` in the workflow or apply the policy manually via the portal or REST API as described in the README below.
 
 GitHub Actions / Secrets:
 - Crea un *secret* llamado `AZURE_CREDENTIALS` con JSON de un service principal (usa `az ad sp create-for-rbac --name "github-actions-apim" --role "Contributor" --scopes /subscriptions/<sub_id>/resourceGroups/<rg> --sdk-auth` y copia el JSON de salida).

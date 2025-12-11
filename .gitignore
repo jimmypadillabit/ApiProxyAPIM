@@ -1,5 +1,6 @@
 # Ignore Azure credentials and secrets
 azure-credentials.json
+apim/APiComercios/policy.xml
 
 # Node / Python stuff (if applicable)
 node_modules/
