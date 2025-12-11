@@ -78,6 +78,16 @@ jobs:
           else
             echo "Version set exists: $VS_EXISTS"
           fi
+          # Wait for the version set to be available (some Azure resources take a moment)
+          for i in 1 2 3 4 5; do
+            VS_EXISTS=$(az apim api versionset show --resource-group $AZ_RG --service-name $APIM_NAME --version-set-id $VERSION_SET_ID --query "id" -o tsv || echo "")
+            if [ -n "$VS_EXISTS" ]; then
+              echo "Version set is available: $VS_EXISTS"
+              break
+            fi
+            echo "Version set not yet available, waiting... (attempt $i)"
+            sleep 3
+          done
       - name: Import API into APIM
         run: |
           echo "Importing API into APIM with version set"
