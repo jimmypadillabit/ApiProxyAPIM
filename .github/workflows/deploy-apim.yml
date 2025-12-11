@@ -8,8 +8,10 @@ env:
   AZ_RG: rg-demo-provefarma-apim
   APIM_NAME: apim-provefarma-demo
   SUBSCRIPTION_ID: a407594f-18e1-4ed7-b941-507c946bb6b3
-  API_ID: api-comercios
+  API_BASE_ID: api-comercios
   PRODUCT_ID: comercios
+  VERSION_SET_ID: comercios-version-set
+  APPLY_POLICY: "false"
   APPLY_POLICY: "false"
 
 jobs:
@@ -21,18 +23,68 @@ jobs:
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Detect API version from OpenAPI
+        id: detect
+        run: |
+          echo "Detecting version from openapi.yaml..."
+          if ! command -v yq >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y jq yq
+          fi
+          VERSION=$(yq e '.info.version' apim/APiComercios/openapi.yaml)
+          echo "OpenAPI version detected: $VERSION"
+          MAJOR=$(echo $VERSION | cut -d '.' -f1)
+          echo "Major version: $MAJOR"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "MAJOR=$MAJOR" >> $GITHUB_OUTPUT
+      - name: Detect API version from OpenAPI
+        run: |
+          echo "Detecting version from openapi.yaml..."
+          if ! command -v yq >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y jq yq
+          fi
+          VERSION=$(yq e '.info.version' apim/APiComercios/openapi.yaml)
+          echo "OpenAPI version detected: $VERSION"
+          MAJOR=$(echo $VERSION | cut -d '.' -f1)
+          echo "Major version: $MAJOR"
+          echo "::set-output name=VERSION::$VERSION"
+          echo "::set-output name=MAJOR::$MAJOR"
+      - name: Set API variables
+        id: set-vars
+        run: |
+          VERSION=${{ steps.detect.outputs.VERSION }}
+          MAJOR=${{ steps.detect.outputs.MAJOR }}
+          API_ID="${{ env.API_BASE_ID }}-v${MAJOR}"
+          API_PATH="${{ env.API_BASE_ID }}/v${MAJOR}"
+          echo "API_ID=$API_ID" >> $GITHUB_OUTPUT
+          echo "API_PATH=$API_PATH" >> $GITHUB_OUTPUT
       - name: Pre-check for duplicate API path
         run: |
-          echo "Checking for existing APIs with path 'api-comercios'..."
-          existing=$(az apim api list --resource-group $AZ_RG --service-name $APIM_NAME --query "[?properties.path=='api-comercios']" -o tsv)
+          API_PATH="${{ env.API_BASE_ID }}/v${{ steps.detect.outputs.MAJOR }}"
+          echo "Checking for existing API with path '$API_PATH'..."
+          existing=$(az apim api list --resource-group $AZ_RG --service-name $APIM_NAME --query "[?properties.path=='$API_PATH']" -o tsv || echo "")
           if [ -n "$existing" ]; then
-            echo "Found existing API(s) with path 'api-comercios'. Please verify before proceeding." >&2
-            az apim api list --resource-group $AZ_RG --service-name $APIM_NAME --query "[].{id:id,name:properties.displayName,path:properties.path}" -o table
-            exit 1
+            echo "API with path $API_PATH already exists — the import will update this API."
+          else
+            echo "No API with path $API_PATH found — creating a new API."
+          fi
+
+      - name: Ensure version set exists
+        run: |
+          VS_EXISTS=$(az apim api version-set show --resource-group $AZ_RG --service-name $APIM_NAME --version-set-id $VERSION_SET_ID --query "id" -o tsv || echo "")
+          if [ -z "$VS_EXISTS" ]; then
+            echo "Creating version set: $VERSION_SET_ID"
+            az apim api version-set create --resource-group $AZ_RG --service-name $APIM_NAME --display-name "Comercios API versions" --versioning-scheme Segment --version-set-id $VERSION_SET_ID
+          else
+            echo "Version set exists: $VS_EXISTS"
           fi
       - name: Import API into APIM
         run: |
-          az apim api import --resource-group $AZ_RG --service-name $APIM_NAME --path api-comercios --api-id $API_ID --specification-format OpenApi --specification-path apim/APiComercios/openapi.yaml --service-url http://4.157.52.221/api
+          echo "Importing API into APIM with version set"
+          VERSION=${{ steps.detect.outputs.VERSION }}
+          MAJOR=${{ steps.detect.outputs.MAJOR }}
+          API_ID="${{ env.API_BASE_ID }}-v${MAJOR}"
+          API_PATH="${{ env.API_BASE_ID }}/v${MAJOR}"
+          az apim api import --resource-group $AZ_RG --service-name $APIM_NAME --path $API_PATH --api-id $API_ID --specification-format OpenApi --specification-path apim/APiComercios/openapi.yaml --service-url http://4.157.52.221/api --version $VERSION --version-set-id $VERSION_SET_ID
       - name: Ensure product exists (comercios)
         run: |
           set -e
