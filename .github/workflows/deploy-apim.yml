@@ -36,7 +36,8 @@ jobs:
           echo "Major version: $MAJOR"
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "MAJOR=$MAJOR" >> $GITHUB_OUTPUT
-      - name: Detect API version from OpenAPI
+      - name: Detect API version from OpenAPI (single pass)
+        id: detect
         run: |
           echo "Detecting version from openapi.yaml..."
           if ! command -v yq >/dev/null 2>&1; then
@@ -46,8 +47,8 @@ jobs:
           echo "OpenAPI version detected: $VERSION"
           MAJOR=$(echo $VERSION | cut -d '.' -f1)
           echo "Major version: $MAJOR"
-          echo "::set-output name=VERSION::$VERSION"
-          echo "::set-output name=MAJOR::$MAJOR"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "MAJOR=$MAJOR" >> $GITHUB_OUTPUT
       - name: Set API variables
         id: set-vars
         run: |
@@ -96,6 +97,7 @@ jobs:
           fi
       - name: Add API to product comercios
         run: |
+          API_ID="${{ env.API_BASE_ID }}-v${{ steps.detect.outputs.MAJOR }}"
           az apim product api add --resource-group $AZ_RG --service-name $APIM_NAME --product-id $PRODUCT_ID --api-id $API_ID || true
       - name: Apply policy to API
         if: env.APPLY_POLICY == 'true'
@@ -105,10 +107,12 @@ jobs:
             echo "jq is required but not installed. Installing jq..."
             sudo apt-get update && sudo apt-get install -y jq
           fi
+          API_ID="${{ env.API_BASE_ID }}-v${{ steps.detect.outputs.MAJOR }}"
           jq -Rs '{value: ., format: "rawxml"}' apim/APiComercios/policy.xml > /tmp/policy_payload.json
           az rest --method PUT --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$AZ_RG/providers/Microsoft.ApiManagement/service/$APIM_NAME/apis/$API_ID/policy?api-version=2021-08-01" --body @/tmp/policy_payload.json
       - name: Quick smoke test
         run: |
           echo "Calling API via gateway to verify (may require subscription key)"
-          curl -s -o response.json -w "%{http_code}" "https://apim-provefarma-demo.azure-api.net/api/farmacias/disponibilidad?medicamento=paracetamol&ciudad=quito"
+          API_PATH="${{ env.API_BASE_ID }}/v${{ steps.detect.outputs.MAJOR }}"
+          curl -s -o response.json -w "%{http_code}" "https://$APIM_NAME.azure-api.net/$API_PATH/farmacias/disponibilidad?medicamento=paracetamol&ciudad=quito"
           cat response.json | jq || true
