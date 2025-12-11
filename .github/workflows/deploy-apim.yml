@@ -71,10 +71,10 @@ jobs:
 
       - name: Ensure version set exists
         run: |
-          VS_EXISTS=$(az apim api version-set show --resource-group $AZ_RG --service-name $APIM_NAME --version-set-id $VERSION_SET_ID --query "id" -o tsv || echo "")
+          VS_EXISTS=$(az apim api versionset show --resource-group $AZ_RG --service-name $APIM_NAME --version-set-id $VERSION_SET_ID --query "id" -o tsv || echo "")
           if [ -z "$VS_EXISTS" ]; then
             echo "Creating version set: $VERSION_SET_ID"
-            az apim api version-set create --resource-group $AZ_RG --service-name $APIM_NAME --display-name "Comercios API versions" --versioning-scheme Segment --version-set-id $VERSION_SET_ID
+            az apim api versionset create --resource-group $AZ_RG --service-name $APIM_NAME --display-name "Comercios API versions" --versioning-scheme Segment --version-set-id $VERSION_SET_ID
           else
             echo "Version set exists: $VS_EXISTS"
           fi
