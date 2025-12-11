@@ -1,0 +1,7 @@
+# Ignore Azure credentials and secrets
+azure-credentials.json
+
+# Node / Python stuff (if applicable)
+node_modules/
+venv/
+.env
