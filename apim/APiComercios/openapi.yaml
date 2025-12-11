@@ -1,6 +1,6 @@
 openapi: "3.0.1"
 info:
-  title: "APi Comercios"
+  title: "APi Comercios - Proxy de Farmacias"
   version: "2.0"
   description: |
     API proxy demostrativa para APIM que reenvía llamadas al backend de disponibilidad de farmacias.
