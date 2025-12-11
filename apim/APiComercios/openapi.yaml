@@ -1,0 +1,123 @@
+openapi: "3.0.1"
+info:
+  title: "APi Comercios"
+  version: "1.0"
+  description: |
+    API proxy demostrativa para APIM que reenvía llamadas al backend de disponibilidad de farmacias.
+servers:
+  - url: "https://{apim_gateway}/api"
+    description: "APIM Gateway (import target)"
+    variables:
+      apim_gateway:
+        default: "your-apim-name.azure-api.net"
+  - url: "http://4.157.52.221/api"
+    description: "Backend service (direct)"
+paths:
+  /health:
+    get:
+      summary: "Health Check"
+      operationId: "health"
+      responses:
+        '200':
+          description: "OK"
+  /farmacias/disponibilidad:
+    get:
+      summary: "Disponibilidad de medicamento en una ciudad"
+      operationId: "disponibilidad"
+      parameters:
+        - name: medicamento
+          in: query
+          required: true
+          description: "Nombre del medicamento a buscar"
+          schema:
+            type: string
+            example: paracetamol
+        - name: ciudad
+          in: query
+          required: false
+          description: "Ciudad donde buscar"
+          schema:
+            type: string
+            example: quito
+      responses:
+        '200':
+          description: "Lista de disponibilidad"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisponibilidadResponse'
+  /farmacias/consultar:
+    post:
+      summary: "Consultar Medicamento (proxy POST sample)"
+      operationId: "consultar"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultarRequest'
+      responses:
+        '200':
+          description: "Resultado de consulta"
+  /pedidos/crear:
+    post:
+      summary: "Crear Pedido (proxy POST sample)"
+      operationId: "crear-pedido"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PedidoRequest'
+      responses:
+        '200':
+          description: "Pedido creado"
+components:
+  schemas:
+    DisponibilidadItem:
+      type: object
+      properties:
+        farmaciaId:
+          type: string
+        farmaciaNombre:
+          type: string
+        direccion:
+          type: string
+        disponible:
+          type: boolean
+        unidades:
+          type: integer
+    DisponibilidadResponse:
+      type: object
+      properties:
+        medicamento:
+          type: string
+        ciudad:
+          type: string
+        resultados:
+          type: array
+          items:
+            $ref: '#/components/schemas/DisponibilidadItem'
+    ConsultarRequest:
+      type: object
+      properties:
+        medicamento:
+          type: string
+        ciudad:
+          type: string
+      required: [medicamento]
+    PedidoRequest:
+      type: object
+      properties:
+        pedidoId:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              medicamento:
+                type: string
+              cantidad:
+                type: integer
+      required: [pedidoId, items]

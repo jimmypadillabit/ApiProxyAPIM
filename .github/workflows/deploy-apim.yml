@@ -1,0 +1,56 @@
+name: Deploy APi Comercios to APIM
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  AZ_RG: rg-demo-provefarma-apim
+  APIM_NAME: apim-provefarma-demo
+  SUBSCRIPTION_ID: a407594f-18e1-4ed7-b941-507c946bb6b3
+  API_ID: api-comercios
+  PRODUCT_ID: comercios
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Azure CLI login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Pre-check for duplicate API path
+        run: |
+          echo "Checking for existing APIs with path 'api-comercios'..."
+          existing=$(az apim api list --resource-group $AZ_RG --service-name $APIM_NAME --query "[?properties.path=='api-comercios']" -o tsv)
+          if [ -n "$existing" ]; then
+            echo "Found existing API(s) with path 'api-comercios'. Please verify before proceeding." >&2
+            az apim api list --resource-group $AZ_RG --service-name $APIM_NAME --query "[].{id:id,name:properties.displayName,path:properties.path}" -o table
+            exit 1
+          fi
+      - name: Import API into APIM
+        run: |
+          az apim api import --resource-group $AZ_RG --service-name $APIM_NAME --path api-comercios --api-id $API_ID --specification-format OpenApi --specification-path apim/APiComercios/openapi.yaml --service-url http://4.157.52.221/api
+      - name: Ensure product exists (comercios)
+        run: |
+          set -e
+          if az apim product show --resource-group $AZ_RG --service-name $APIM_NAME --product-id $PRODUCT_ID >/dev/null 2>&1; then
+            echo "Product $PRODUCT_ID already exists"
+          else
+            echo "Creating product $PRODUCT_ID"
+            az apim product create --resource-group $AZ_RG --service-name $APIM_NAME --product-id $PRODUCT_ID --display-name "Comercios" --approval-required false --subscription-required false
+          fi
+      - name: Add API to product comercios
+        run: |
+          az apim product api add --resource-group $AZ_RG --service-name $APIM_NAME --product-id $PRODUCT_ID --api-id $API_ID || true
+      - name: Apply policy to API
+        run: |
+          POLICY_XML=$(sed -e ':a;N;$!ba;s/\\n/\\\\n/g' apim/APiComercios/policy.xml | sed 's/"/\\"/g')
+          BODY="{\"properties\":{\"value\":\"$POLICY_XML\",\"format\":\"rawxml\"}}"
+          az rest --method PUT --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$AZ_RG/providers/Microsoft.ApiManagement/service/$APIM_NAME/apis/$API_ID/policy?api-version=2021-08-01" --body "$BODY"
+      - name: Quick smoke test
+        run: |
+          echo "Calling API via gateway to verify (may require subscription key)"
+          curl -s -o response.json -w "%{http_code}" "https://apim-provefarma-demo.azure-api.net/api/farmacias/disponibilidad?medicamento=paracetamol&ciudad=quito"
+          cat response.json | jq || true
