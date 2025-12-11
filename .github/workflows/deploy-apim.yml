@@ -46,9 +46,13 @@ jobs:
           az apim product api add --resource-group $AZ_RG --service-name $APIM_NAME --product-id $PRODUCT_ID --api-id $API_ID || true
       - name: Apply policy to API
         run: |
-          POLICY_XML=$(sed -e ':a;N;$!ba;s/\\n/\\\\n/g' apim/APiComercios/policy.xml | sed 's/"/\\"/g')
-          BODY="{\"properties\":{\"value\":\"$POLICY_XML\",\"format\":\"rawxml\"}}"
-          az rest --method PUT --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$AZ_RG/providers/Microsoft.ApiManagement/service/$APIM_NAME/apis/$API_ID/policy?api-version=2021-08-01" --body "$BODY"
+          # Build a valid JSON payload safely from the XML file and send as file to az rest
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "jq is required but not installed. Installing jq..."
+            sudo apt-get update && sudo apt-get install -y jq
+          fi
+          jq -Rs '{value: ., format: "rawxml"}' apim/APiComercios/policy.xml > /tmp/policy_payload.json
+          az rest --method PUT --uri "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$AZ_RG/providers/Microsoft.ApiManagement/service/$APIM_NAME/apis/$API_ID/policy?api-version=2021-08-01" --body @/tmp/policy_payload.json
       - name: Quick smoke test
         run: |
           echo "Calling API via gateway to verify (may require subscription key)"
